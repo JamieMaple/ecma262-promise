@@ -48,13 +48,58 @@ export default class TPromise implements IPromise {
   public catch(onRejected: Function): IPromise {
     return this.then(undefined, onRejected)
   }
-  public finally(): IPromise {
+  public finally(onFinally: Function): IPromise {
     let promise = this
     if (!isObject(promise)) {
       throw new TypeError()
     }
-    // TODO
-    return new TPromise(() => {})
+    let C = promise.constructor
+
+    if (!isConstructor(C)) {
+      throw new TypeError()
+    }
+
+    let thenFinally, catchFinally
+
+    if (!isCallable(onFinally)) {
+      thenFinally = onFinally
+      catchFinally = catchFinally
+    } else {
+      // A ThenFinally function is an anonymous built-in function that has a [[Constructor]] and an [[OnFinally]] internal slot.
+      thenFinally = function(value) {
+        let onFinally = thenFinally.onFinally
+        if (!isCallable(onFinally)) {
+          throw new TypeError()
+        }
+        let result = onFinally.call(undefined)
+        let C = thenFinally.constructor
+        if (!isConstructor(C)) {
+          throw new TypeError()
+        }
+        let promise = promiseResolve(C, result)
+        let valueThunk = function() {return value}
+        return promise.then(valueThunk)
+      }
+      // A CatchFinally function is an anonymous built-in function that has a [[Constructor]] and an [[OnFinally]] internal slot.
+      catchFinally = function(reason) {
+        let onFinally = catchFinally.onFinally
+        if (!isCallable(onFinally)) {
+          throw new TypeError()
+        }
+        let result = onFinally.call(undefined)
+        let C = catchFinally.constructor
+        if (!isConstructor(C)) {
+          throw new TypeError()
+        }
+        let promise = promiseResolve(C, reason)
+        let thrower = function() {throw reason}
+        return promise.then(thrower)
+      }
+      thenFinally.constructor = catchFinally.constructor = C
+      thenFinally.onFinally = catchFinally.onFinally = onFinally
+    }
+
+    return promise.then(thenFinally, catchFinally)
   }
 
   public static resolve(x: any): IPromise {
@@ -91,7 +136,7 @@ export default class TPromise implements IPromise {
   }
 
   // TODO static
-  private static get ['@@species'] (): IPromise {
+  static get ['@@species'] (): IPromise {
     return <any>this
   }
   public static all() {
@@ -283,7 +328,7 @@ function promiseReactionJob(reaction: PromiseReaction, argument) {
 
   return promiseCapability.resolve.call(undefined, handlerResult)
 }
-
+// thenable
 function promiseResolveThanableJob(promiseToResolve: TPromise, thenable: any, then: Function) {
   let resolvingFunctions = createResolvingFunctions(promiseToResolve)
   try {
@@ -292,7 +337,7 @@ function promiseResolveThanableJob(promiseToResolve: TPromise, thenable: any, th
     resolvingFunctions.reject.call(undefined, reason)
   }
 }
-// promise
+// promise then
 function performPromiseThen(promise: TPromise, onFulfilled: Function, onRejected: Function, resultCapability: PromiseCability): IPromise {
   // params not function
   if (!isCallable(onFulfilled)) {
@@ -321,4 +366,20 @@ function performPromiseThen(promise: TPromise, onFulfilled: Function, onRejected
   }
 
   return resultCapability.promise
-}  
+
+}
+// promise resolve
+function promiseResolve(C: Function, x: any): IPromise {
+  if (!isObject(C)) {
+    throw new TypeError()
+  }
+  if (isPromise(x)) {
+    let xConstructor = getObjectProp(x, 'constructor')
+    if (sameValue(xConstructor, C)) {
+      return x
+    }
+  }
+  let promiseCapability = newPromiseCapability(C)
+  promiseCapability.resolve.call(undefined, x)
+  return promiseCapability.promise
+}
