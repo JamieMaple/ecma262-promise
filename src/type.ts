@@ -20,9 +20,9 @@
   */
  export type completionRecord = {
    // type: typeOfCRecord,
-   type: 'normal'|'break'|'continue'|'return'|'throw',
-   value: any,
-   target: string|null,
+   type?: 'normal'|'break'|'continue'|'return'|'throw',
+   value?: any,
+   target?: string|null,
  }
 
  /*

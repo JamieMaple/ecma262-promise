@@ -24,7 +24,7 @@ Promise
 // methods
 Promise.prototype.then
 Promise.prototype.catch
-// finally - stage4
+// finally - stage4 it
 Promise.prototype.finally
 
 // static methods

@@ -3,7 +3,6 @@ import {
   STATE,
   PromiseCability,
   PromiseReaction,
-  completionRecord,
 } from './type'
 import {
   isCallable,
@@ -50,18 +49,62 @@ export default class TPromise implements IPromise {
     return this.then(undefined, onRejected)
   }
   public finally(): IPromise {
+    let promise = this
+    if (!isObject(promise)) {
+      throw new TypeError()
+    }
     // TODO
     return new TPromise(() => {})
   }
 
-  // TODO static 
-  public static all() {}
+  public static resolve(x: any): IPromise {
+    let C = this
+    if (!isObject(C)) {
+      throw new TypeError()
+    }
 
+    if (isPromise(x)) {
+      let xConstructor = getObjectProp(x, 'constructor')
+      if (sameValue(xConstructor, C)) {
+        return x
+      }
+    }
+
+    let promiseCapability = newPromiseCapability(C)
+
+    promiseCapability.resolve.call(undefined, x)
+
+    return promiseCapability.promise
+  }
+
+  public static reject(r: any): IPromise {
+    let C = this
+    if (!isObject(C)) {
+      throw new TypeError()
+    }
+
+    let promiseCapability = newPromiseCapability(C)
+
+    promiseCapability.reject.call(undefined, r)
+
+    return promiseCapability.promise
+  }
+
+  // TODO static
+  private static get ['@@species'] (): IPromise {
+    return <any>this
+  }
+  public static all() {
+    let C = this
+    if (!isObject(C)) {
+      throw new TypeError()
+    }
+    let S = getObjectProp(C, '@@species')
+    if (S != undefined) {
+      C = S
+    }
+  }
   public static race() {}
-
-  public static resolve() {}
-
-  public static reject() {}
 }
 /*
  * some Promise Abstract Operations
@@ -223,34 +266,22 @@ function isPromise(x: any): boolean {
 function promiseReactionJob(reaction: PromiseReaction, argument) {
   let promiseCapability = reaction.capability
   let handler = reaction.handler
-  let handlerResult: completionRecord = {
-    type: 'normal',
-    value: undefined,
-    target: null
-  }
+  let handlerResult
 
   try {
     if (<any>handler === 'Identity') {
-      handlerResult = {
-        type: 'normal',
-        value: argument,
-        target: null,
-      }
+      handlerResult = argument
     } else if (<any>handler === 'Thrower') {
-      handlerResult = {
-        type: 'throw',
-        value: argument,
-        target: null,
-      }
+      handlerResult = argument
       throw handlerResult
     } else {
-      handlerResult.value = handler.call(undefined, argument)
+      handlerResult = handler.call(undefined, argument)
     }
   } catch (reason) {
     return promiseCapability.reject.call(undefined, reason)
   }
 
-  return promiseCapability.resolve.call(undefined, handlerResult.value)
+  return promiseCapability.resolve.call(undefined, handlerResult)
 }
 
 function promiseResolveThanableJob(promiseToResolve: TPromise, thenable: any, then: Function) {
