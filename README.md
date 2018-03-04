@@ -6,6 +6,8 @@
 
 ### ES6
 
+PS：从 LearningNotes 的造轮子分支中单独分离出来的仓库。。。
+
 网上 A+ 栗子非常多，但为了尝试学院派的风格，故遵守标准造造轮子
 
 promise 读规范有感
@@ -22,13 +24,20 @@ Promise
 // methods
 Promise.prototype.then
 Promise.prototype.catch
+// finally - stage4
+Promise.prototype.finally
+
+// static methods
+Promise.resolve
+Promise.reject
 
 // TODO
-
-// final method and static methods
+// all, race
 ```
 
 > http://www.ecma-international.org/ecma-262/6.0/ECMA-262.pdf
+
+> https://tc39.github.io/proposal-promise-finally/
 
 PS：果然我的代码水平依然很烂
 
